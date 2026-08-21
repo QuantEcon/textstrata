@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "textstrata"
+dynamic = ["version"]
+description = "Git-derived metrics for machine-drafted, human-edited text: who wrote what, what humans fix, what the machine overwrites"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{ name = "QuantEcon" }]
+keywords = ["git", "provenance", "translation", "metrics", "blame", "machine-translation"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Version Control :: Git",
+  "Topic :: Text Processing :: Linguistic",
+]
+dependencies = ["pyyaml>=6"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+textstrata = "textstrata.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/QuantEcon/textstrata"
+Issues = "https://github.com/QuantEcon/textstrata/issues"
+
+[tool.hatch.version]
+path = "src/textstrata/__init__.py"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

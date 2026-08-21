@@ -1,0 +1,15 @@
+name: lecture-python.zh-cn
+repo: ../../../project-translation/repos/lecture-python.zh-cn
+files: "lectures/*.md"
+source:
+  repo: ../../../project-translation/repos/lecture-python.myst
+prose: {strategy: script, script: Han, threshold: 0.05}
+baseline: {strategy: script-jump}
+machine:
+  bots: ['\[bot\]', 'dependabot', 'github-actions']
+  sync: ['\[translation-sync\]', '\[action-translation\]', 'resync']
+  state_dir: .translate/state
+disclosure: {trailers: [AI-Assisted], authors: ['copilot-swe-agent']}
+people:
+  roster: ../../../project-translation/team/reviewers.yml
+  roles: {editor: human-editor, translator: human-translator}

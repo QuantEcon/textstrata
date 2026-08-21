@@ -1,0 +1,43 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e ".[dev]"
+      - run: ruff check src tests
+      - run: pytest -q
+  regression:
+    # the 2026-08-04 study, reproduced on a pinned checkout of lecture-intro.zh-cn
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: QuantEcon/lecture-intro.zh-cn
+          ref: 046656207b69e2b51219528fd8e22c88f7a8635a
+          fetch-depth: 0
+          path: intro-zh-cn
+      - uses: actions/checkout@v4
+        with:
+          repository: QuantEcon/project-translation
+          path: project-translation
+          token: ${{ secrets.PROJECT_TRANSLATION_READ_TOKEN }}
+        continue-on-error: true   # private roster; without it human tiers collapse to ai-assisted but the compared quantities do not change
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: |
+          if [ -f project-translation/team/reviewers.yml ]; then export TEXTSTRATA_ROSTER=$PWD/project-translation/team/reviewers.yml; fi
+          TEXTSTRATA_INTRO_ZH_CN_REPO=$PWD/intro-zh-cn pytest -q tests/test_regression.py

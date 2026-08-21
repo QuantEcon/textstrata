@@ -1,0 +1,7 @@
+# Per-commit tier overrides for lecture-intro.zh-cn — a reviewed data file, not code.
+# Applied after the machine and baseline rules (which they cannot reclassify) and before
+# the author rules. Carried over from the 2026-08-04 study's hand audit of all 229 subjects,
+# translated into tiers: the study's human_* classes become the author's roster tier, so
+# only commits whose AUTHOR rule would be wrong need an entry here.
+overrides:
+  8b97f8a: {tier: seed, note: "setup lectures folder for cn language lectures — English seed, predates translation"}

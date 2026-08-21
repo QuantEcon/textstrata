@@ -1,0 +1,31 @@
+# textstrata configuration — QuantEcon/lecture-intro.zh-cn (reference configuration)
+# Paths are relative to this file; point `repo`/`source.repo`/`people.roster` at local clones.
+name: lecture-intro.zh-cn
+repo: ../../../project-translation/repos/lecture-intro.zh-cn
+files: "lectures/*.md"
+source:
+  repo: ../../../project-translation/repos/lecture-python-intro
+prose:
+  strategy: script
+  script: Han
+  threshold: 0.05
+baseline:
+  strategy: script-jump
+  overrides:
+    # pilot lecture: the Aug-2024 long_run_growth_cn.md was a discarded rough draft; the version that
+    # seeded lectures/long_run_growth.md is cd9808c ("update lrg", regenerated with the chunked script)
+    lectures/long_run_growth.md: cd9808c
+machine:
+  bots: ['\[bot\]', 'dependabot', 'github-actions']
+  sync: ['\[translation-sync\]', '\[action-translation\]', 'resync']
+  state_dir: .translate/state
+  require_state_change: false
+disclosure:
+  trailers: [AI-Assisted]
+  authors: ['copilot-swe-agent']
+people:
+  roster: ../../../project-translation/team/reviewers.yml
+  roles: {editor: human-editor, translator: human-translator}
+review_state:
+  stale_after_syncs: 3
+overrides: overrides/intro-zh-cn.yml
