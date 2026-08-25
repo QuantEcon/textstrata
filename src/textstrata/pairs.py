@@ -83,6 +83,17 @@ def categorise(old: str, new: str, prose: Prose) -> tuple[str, float]:
     return "retranslation", sim
 
 
+def changed_chars(old: str, new: str) -> tuple[int, int]:
+    """(deleted, added) character counts between paired lines, from SequenceMatcher opcodes."""
+    dels = adds = 0
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, old, new).get_opcodes():
+        if tag in ("replace", "delete"):
+            dels += i2 - i1
+        if tag in ("replace", "insert"):
+            adds += j2 - j1
+    return dels, adds
+
+
 def line_pairs(h: Hunk, prose: Prose) -> tuple[list[tuple[int, str, str]], list[str], list[tuple[int, str]]]:
     """Pair old/new lines within a hunk. Returns (pairs[(old_lineno, old, new)], adds, dels[(old_lineno, old)])."""
     old, new = h.old, h.new

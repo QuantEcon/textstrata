@@ -2,7 +2,7 @@ import pytest
 
 from textstrata.config import Config, ConfigError, ProseConfig, load_config
 from textstrata.git import Commit, parse_trailers
-from textstrata.pairs import categorise, line_pairs, parse_hunks
+from textstrata.pairs import categorise, changed_chars, line_pairs, parse_hunks
 from textstrata.prose import Prose
 from textstrata.roster import Person, Roster
 from textstrata.tiers import TierContext
@@ -29,6 +29,14 @@ def test_categorise():
     assert categorise("x = 1", "x = 2", p)[0] == "code-or-markup"
     assert categorise("ax.set_xlabel('time')", "ax.set_xlabel('时间')", p)[0] == "localise-code-label"
     assert categorise("完全不同的一句话，没有任何重叠。", "这里讨论价格水平如何决定。", p)[0] == "retranslation"
+
+
+def test_changed_chars():
+    # a one-character punctuation fix counts one character each way, not the line
+    assert changed_chars("首先解释增长事实是主要目的.", "首先解释增长事实是主要目的。") == (1, 1)
+    assert changed_chars("这些代理人都居住。", "这些个体都居住。") == (3, 2)
+    assert changed_chars("一样的行。", "一样的行。") == (0, 0)
+    assert changed_chars("", "新增的一行。") == (0, 6)
 
 
 def test_hunks_and_pairs():

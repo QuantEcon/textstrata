@@ -8,3 +8,6 @@
   rejected instead of silently scanning with `script-jump`.
 - README and `docs/method.md` no longer claim character-level churn is reported; that work is tracked in
   [#4](https://github.com/QuantEcon/textstrata/issues/4).
+- Character-level churn ([#4](https://github.com/QuantEcon/textstrata/issues/4)): `chars_changed` per pair,
+  `prose_chars_added`/`prose_chars_deleted` per commit and `prose_char_churn_by_tier` per document, so F1
+  can be read per 1,000 characters as well as per 1,000 lines.
