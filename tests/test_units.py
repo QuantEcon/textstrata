@@ -1,4 +1,6 @@
-from textstrata.config import Config, ProseConfig
+import pytest
+
+from textstrata.config import Config, ConfigError, ProseConfig, load_config
 from textstrata.git import Commit, parse_trailers
 from textstrata.pairs import categorise, line_pairs, parse_hunks
 from textstrata.prose import Prose
@@ -52,8 +54,10 @@ def make_ctx(tmp_path, overrides=None):
     ed = Person(id="ed", role="editor", emails=["ed@example.org"])
     tr = Person(id="tr", role="translator", emails=["tr@example.org"])
     for p in (ed, tr):
-        roster.people.append(p); roster.by_handle[p.id] = p
-        for e in p.emails: roster.by_email[e] = p
+        roster.people.append(p)
+        roster.by_handle[p.id] = p
+        for e in p.emails:
+            roster.by_email[e] = p
     return TierContext(cfg, roster, overrides or {})
 
 
@@ -86,5 +90,16 @@ def test_tier_precedence(tmp_path):
 
 
 def test_noreply_handle_resolution():
-    r = Roster(); p = Person(id="HumphreyYang", role="editor"); r.by_handle["humphreyyang"] = p
+    r = Roster()
+    p = Person(id="HumphreyYang", role="editor")
+    r.by_handle["humphreyyang"] = p
     assert r.resolve_email("39026988+HumphreyYang@users.noreply.github.com") is p
+
+
+def test_baseline_strategy_validated(tmp_path):
+    (tmp_path / ".git").mkdir()
+    for strategy, msg in (("state-file", "not implemented"), ("bogus", "must be script-jump")):
+        p = tmp_path / f"{strategy}.yml"
+        p.write_text(f"name: t\nrepo: {tmp_path}\nbaseline: {{strategy: {strategy}}}\n", encoding="utf-8")
+        with pytest.raises(ConfigError, match=msg):
+            load_config(p)

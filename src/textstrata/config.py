@@ -145,13 +145,18 @@ def load_config(path: str | Path) -> Config:
         raise ConfigError(f"prose.strategy must be script or source-diff, got {prose.strategy!r}")
     if prose.strategy == "source-diff":
         raise ConfigError("prose.strategy source-diff is planned but not implemented (Stage 2)")
+    baseline = _sub(BaselineConfig, raw.get("baseline"), "baseline")
+    if baseline.strategy not in ("script-jump", "state-file"):
+        raise ConfigError(f"baseline.strategy must be script-jump or state-file, got {baseline.strategy!r}")
+    if baseline.strategy == "state-file":
+        raise ConfigError("baseline.strategy state-file is planned but not implemented")
     cfg = Config(
         name=str(raw["name"]),
         repo=Path(raw["repo"]),
         files=str(raw.get("files", "lectures/*.md")),
         source=_sub(SourceConfig, raw.get("source"), "source"),
         prose=prose,
-        baseline=_sub(BaselineConfig, raw.get("baseline"), "baseline"),
+        baseline=baseline,
         machine=_sub(MachineConfig, raw.get("machine"), "machine"),
         disclosure=_sub(DisclosureConfig, raw.get("disclosure"), "disclosure"),
         people=_sub(PeopleConfig, raw.get("people"), "people"),
