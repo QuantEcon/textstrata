@@ -33,7 +33,7 @@ from .git import (
     ls_files,
     show,
 )
-from .pairs import CATEGORY_MAP, categorise, line_pairs, mine_substitutions, parse_hunks
+from .pairs import CATEGORY_MAP, categorise, changed_chars, line_pairs, mine_substitutions, parse_hunks
 from .prose import Prose
 from .roster import Roster
 from .tiers import HUMAN_TIERS, TierContext
@@ -56,6 +56,7 @@ class DocResult:
     similarity_initial_head: float | None = None
     commits_by_tier: dict[str, int] = field(default_factory=dict)
     prose_churn_by_tier: dict[str, int] = field(default_factory=dict)  # prose lines added+deleted
+    prose_char_churn_by_tier: dict[str, int] = field(default_factory=dict)  # prose characters added+deleted
     first_human_touch: str | None = None
     last_human_touch: str | None = None
     days_to_first_human_touch: int | None = None
@@ -122,7 +123,8 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
             tier_of[(f, c.sha)] = tier
             commit_rows.append({"document": f, "sha": c.sha, "author": c.author, "email": c.email,
                                 "date": c.date, "subject": c.subject, "tier": tier,
-                                "adds": c.adds, "dels": c.dels, "prose_adds": 0, "prose_dels": 0})
+                                "adds": c.adds, "dels": c.dels, "prose_adds": 0, "prose_dels": 0,
+                                "prose_chars_added": 0, "prose_chars_deleted": 0})
         d = DocResult(path=f, translated=t_sha is not None, translation_sha=t_sha,
                       translation_date=t_date, n_commits=len(hist))
         docs[f] = d
@@ -171,6 +173,7 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
         d.commits_by_tier = dict(Counter(tier_of[(f, c.sha)] for c in post))
         # per-commit diffs: prose churn, pairs, overwrites
         churn: Counter = Counter()
+        char_churn: Counter = Counter()
         for c in post:
             tier = tier_of[(f, c.sha)]
             try:
@@ -180,8 +183,21 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
             p_adds = sum(1 for h in hunks for ln in h.new if prose.is_prose(ln))
             p_dels = sum(1 for h in hunks for ln in h.old if prose.is_prose(ln))
             churn[tier] += p_adds + p_dels
+            # and in characters, so a one-character fix is not credited with the whole line
+            paired = [line_pairs(h, prose) for h in hunks]
+            pc_adds = pc_dels = 0
+            for pairs, adds, dels in paired:
+                for _ln, o, n in pairs:
+                    if prose.is_prose(o) or prose.is_prose(n):
+                        d_chars, a_chars = changed_chars(o, n)
+                        pc_dels += d_chars
+                        pc_adds += a_chars
+                pc_adds += sum(len(x) for x in adds if prose.is_prose(x))
+                pc_dels += sum(len(x) for _ln, x in dels if prose.is_prose(x))
+            char_churn[tier] += pc_adds + pc_dels
             row = rows_by_key[(f, c.sha)]
             row["prose_adds"], row["prose_dels"] = p_adds, p_dels
+            row["prose_chars_added"], row["prose_chars_deleted"] = pc_adds, pc_dels
             pr = PR_RE.search(c.subject)
             if tier == "ai-sync":
                 # what did the machine replace? blame the deleted prose lines at the parent
@@ -210,16 +226,17 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
                 continue
             if tier == "seed":
                 continue
-            for h in hunks:
-                pairs, adds, dels = line_pairs(h, prose)
+            for pairs, adds, dels in paired:
                 for _ln, o, n in pairs:
                     if o.strip() == n.strip():
                         continue
                     cat, sim = categorise(o, n, prose)
+                    d_chars, a_chars = changed_chars(o, n)
                     pairs_out.append({"document": f, "sha": c.sha[:8], "date": c.date[:10],
                                       "tier": tier, "pr": pr.group(1) if pr else None,
                                       "category": cat, "taxonomy": CATEGORY_MAP[cat],
-                                      "similarity": round(sim, 3), "before": o, "after": n})
+                                      "similarity": round(sim, 3), "chars_changed": d_chars + a_chars,
+                                      "before": o, "after": n})
                     if tier in HUMAN_TIERS and cat in ("terminology", "punctuation-width", "fluency"):
                         mine_substitutions(o, n, prose, subs, sub_examples)
                 for n in adds:
@@ -227,14 +244,17 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
                         pairs_out.append({"document": f, "sha": c.sha[:8], "date": c.date[:10],
                                           "tier": tier, "pr": pr.group(1) if pr else None,
                                           "category": "addition", "taxonomy": "omission",
-                                          "similarity": 0.0, "before": "", "after": n})
+                                          "similarity": 0.0, "chars_changed": len(n),
+                                          "before": "", "after": n})
                 for _ln, o in dels:
                     if o.strip():
                         pairs_out.append({"document": f, "sha": c.sha[:8], "date": c.date[:10],
                                           "tier": tier, "pr": pr.group(1) if pr else None,
                                           "category": "deletion", "taxonomy": "omission",
-                                          "similarity": 0.0, "before": o, "after": ""})
+                                          "similarity": 0.0, "chars_changed": len(o),
+                                          "before": o, "after": ""})
         d.prose_churn_by_tier = dict(churn)
+        d.prose_char_churn_by_tier = dict(char_churn)
         # a human "touch" is a roster-tier commit that changed prose (technical fixes do not count)
         humans = [c for c in post if tier_of[(f, c.sha)] in HUMAN_TIERS
                   and (rows_by_key[(f, c.sha)]["prose_adds"] + rows_by_key[(f, c.sha)]["prose_dels"])

@@ -39,7 +39,7 @@ All stock metrics count **lines containing the target script**. On raw lines mos
 | S2 | Baseline survival | S1's `ai-initial` share; plus `difflib` similarity of the initial translation to HEAD |
 | S3 | Derived review state | `machine-only` (no prose-changing roster commit since translation) → `human-touched` → `audit-stale` (≥ `review_state.stale_after_syncs` machine syncs since the last touch) |
 | S4 | Freshness | source commits since the state file's `source-sha` (only with a source repo and state directory) |
-| F1 | Human churn | prose lines added + deleted by roster-tier commits, per document; normalise by machine-delivered lines and stratify by engine version downstream |
+| F1 | Human churn | prose lines added + deleted by roster-tier commits, per document — also in changed characters; normalise by machine-delivered lines or characters and stratify by engine version downstream |
 | F2 | Overwrites | for each `ai-sync` commit, the prose lines it deleted, blamed at the parent, counted by prior tier |
 | F3 | Edit categories | pair counts by category and taxonomy bucket |
 | F4 | Recurring substitutions | short `(before, after)` replacements inside terminology / fluency / width pairs, counted across the corpus |
@@ -49,7 +49,7 @@ All stock metrics count **lines containing the target script**. On raw lines mos
 ## Known limits
 
 - **Squash merges** hide human work done inside a machine-drafted PR. `ai-initial` means *as landed*; human effort is a lower bound.
-- **Last-toucher blame** credits a whole line to whoever changed one character of it. Human shares are an upper bound at line granularity; reporting churn in changed characters is planned ([#4](https://github.com/QuantEcon/textstrata/issues/4)) — until then the before/after text in `pairs.jsonl` is the only character-level signal.
+- **Last-toucher blame** credits a whole line to whoever changed one character of it. Human shares are an upper bound at line granularity; churn is therefore also reported in changed characters (`chars_changed` per pair, `prose_chars_added`/`prose_chars_deleted` per commit, `prose_char_churn_by_tier` per document), where a one-character fix counts as one character. Counts come from `SequenceMatcher` opcodes over the paired lines' raw text; unpaired additions and deletions count the full line.
 - **Line pairing** inside rewritten paragraphs is heuristic (similarity-matched within a hunk). Category counts are indicative.
 - **Identity** is resolved by e-mail and GitHub noreply handle only; display names are ignored. Unresolved authors fall to `ai-assisted` and should be reviewed in `commits.jsonl`.
 - **Pre-engine history** has no recorded engine version. Stratify flow metrics by version downstream and label the pre-engine stratum as such; do not read its rates as the shipping engine's.
