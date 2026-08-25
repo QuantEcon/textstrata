@@ -44,7 +44,7 @@ One YAML file per target repository — see [docs/configuration.md](docs/configu
 ## Limits worth knowing
 
 - Squash merges hide human cleanup done inside a machine-drafted PR: `ai-initial` means *as landed*, so human effort is a **lower bound**.
-- Blame credits the last toucher: a one-character fix claims the whole line, so human shares are an **upper bound** at line granularity. Churn is also reported in changed characters.
+- Blame credits the last toucher: a one-character fix claims the whole line, so human shares are an **upper bound** at line granularity. Churn in changed characters, alongside the line counts, is planned ([#4](https://github.com/QuantEcon/textstrata/issues/4)).
 - Pairing lines inside rewritten paragraphs is heuristic; category counts are indicative, not exact.
 - Latin-script targets (e.g. French from English) have no script signal; the `source-diff` prose strategy for them is planned, not implemented.
 

@@ -177,8 +177,8 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
                 hunks = parse_hunks(diff_u0(repo, c.sha, c.path))
             except GitError:
                 continue
-            p_adds = sum(1 for h in hunks for l in h.new if prose.is_prose(l))
-            p_dels = sum(1 for h in hunks for l in h.old if prose.is_prose(l))
+            p_adds = sum(1 for h in hunks for ln in h.new if prose.is_prose(ln))
+            p_dels = sum(1 for h in hunks for ln in h.old if prose.is_prose(ln))
             churn[tier] += p_adds + p_dels
             row = rows_by_key[(f, c.sha)]
             row["prose_adds"], row["prose_dels"] = p_adds, p_dels

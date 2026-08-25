@@ -144,4 +144,4 @@ def diff_u0(repo: Path, sha: str, path: str) -> str:
 
 def log_range(repo: Path, rng: str, path: str) -> list[tuple[str, str, str]]:
     out = run(repo, "log", f"--format=%H{SEP}%aI{SEP}%s", rng, "--", path)
-    return [tuple(l.split(SEP, 2)) for l in out.splitlines() if l.strip()]  # type: ignore[misc]
+    return [tuple(ln.split(SEP, 2)) for ln in out.splitlines() if ln.strip()]  # type: ignore[misc]

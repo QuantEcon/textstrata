@@ -49,7 +49,7 @@ All stock metrics count **lines containing the target script**. On raw lines mos
 ## Known limits
 
 - **Squash merges** hide human work done inside a machine-drafted PR. `ai-initial` means *as landed*; human effort is a lower bound.
-- **Last-toucher blame** credits a whole line to whoever changed one character of it. Human shares are an upper bound at line granularity; churn is also available in changed characters from the pairs.
+- **Last-toucher blame** credits a whole line to whoever changed one character of it. Human shares are an upper bound at line granularity; reporting churn in changed characters is planned ([#4](https://github.com/QuantEcon/textstrata/issues/4)) — until then the before/after text in `pairs.jsonl` is the only character-level signal.
 - **Line pairing** inside rewritten paragraphs is heuristic (similarity-matched within a hunk). Category counts are indicative.
 - **Identity** is resolved by e-mail and GitHub noreply handle only; display names are ignored. Unresolved authors fall to `ai-assisted` and should be reviewed in `commits.jsonl`.
 - **Pre-engine history** has no recorded engine version. Stratify flow metrics by version downstream and label the pre-engine stratum as such; do not read its rates as the shipping engine's.
