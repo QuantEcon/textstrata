@@ -8,6 +8,7 @@ document with no state file at all.
 import os
 import subprocess
 import sys
+from datetime import datetime
 
 import pytest
 
@@ -72,11 +73,18 @@ def moment(cfg, repo, doc):
     return translation_moment(cfg, repo, Prose(ProseConfig()), doc, file_history(repo, doc), sys.stderr)
 
 
+def same_instant(date, expected):
+    # git renders %aI's UTC offset as either Z or +00:00 depending on version;
+    # compare instants, not strings
+    return datetime.fromisoformat(date) == datetime.fromisoformat(expected)
+
+
 def test_state_file_moments(engine_repo, capsys):
     repo, shas = engine_repo
     cfg = make_cfg(repo)
     # same-commit case: the moment is the state file's creating commit
-    assert moment(cfg, repo, "lectures/a.md") == (shas["init"], "2026-03-20T10:00:00Z")
+    sha, date = moment(cfg, repo, "lectures/a.md")
+    assert sha == shas["init"] and same_instant(date, "2026-03-20T10:00:00+00:00")
     # adjacent-commit case: the state-creating commit is not in the document's
     # history; the moment falls back to the document revision just before it
     assert moment(cfg, repo, "lectures/b.md")[0] == shas["b_doc"]
@@ -88,4 +96,12 @@ def test_state_file_moments(engine_repo, capsys):
 def test_override_beats_state_file(engine_repo):
     repo, shas = engine_repo
     cfg = make_cfg(repo, overrides={"lectures/c.md": shas["c_doc"][:7]})
-    assert moment(cfg, repo, "lectures/c.md") == (shas["c_doc"], "2026-05-01T09:00:00Z")
+    sha, date = moment(cfg, repo, "lectures/c.md")
+    assert sha == shas["c_doc"] and same_instant(date, "2026-05-01T09:00:00+00:00")
+
+
+def test_override_without_match_warns(engine_repo, capsys):
+    repo, _shas = engine_repo
+    cfg = make_cfg(repo, overrides={"lectures/a.md": "deadbeef"})
+    assert moment(cfg, repo, "lectures/a.md") == (None, None)
+    assert "matches no commit" in capsys.readouterr().err

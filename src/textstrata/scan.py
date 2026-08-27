@@ -98,6 +98,9 @@ def translation_moment(cfg: Config, repo: Path, prose: Prose, f: str,
         for c in hist:
             if c.sha.startswith(forced):
                 t_sha, t_date = c.sha, c.date
+        if t_sha is None:
+            print(f"  {f}: baseline override {forced} matches no commit in its history; "
+                  "treated as untranslated", file=log)
         return t_sha, t_date
     if cfg.baseline.strategy == "state-file":
         return _state_file_moment(cfg, repo, f, hist, log)
