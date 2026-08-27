@@ -57,7 +57,7 @@ class ProseConfig:
 
 @dataclass
 class BaselineConfig:
-    strategy: str = "script-jump"       # script-jump | state-file (planned)
+    strategy: str = "script-jump"       # script-jump | state-file
     overrides: dict[str, str] = field(default_factory=dict)   # file -> sha prefix
 
 
@@ -148,8 +148,9 @@ def load_config(path: str | Path) -> Config:
     baseline = _sub(BaselineConfig, raw.get("baseline"), "baseline")
     if baseline.strategy not in ("script-jump", "state-file"):
         raise ConfigError(f"baseline.strategy must be script-jump or state-file, got {baseline.strategy!r}")
-    if baseline.strategy == "state-file":
-        raise ConfigError("baseline.strategy state-file is planned but not implemented")
+    machine = _sub(MachineConfig, raw.get("machine"), "machine")
+    if baseline.strategy == "state-file" and not machine.state_dir:
+        raise ConfigError("baseline.strategy state-file requires machine.state_dir")
     cfg = Config(
         name=str(raw["name"]),
         repo=Path(raw["repo"]),
@@ -157,7 +158,7 @@ def load_config(path: str | Path) -> Config:
         source=_sub(SourceConfig, raw.get("source"), "source"),
         prose=prose,
         baseline=baseline,
-        machine=_sub(MachineConfig, raw.get("machine"), "machine"),
+        machine=machine,
         disclosure=_sub(DisclosureConfig, raw.get("disclosure"), "disclosure"),
         people=_sub(PeopleConfig, raw.get("people"), "people"),
         review_state=_sub(ReviewStateConfig, raw.get("review_state"), "review_state"),

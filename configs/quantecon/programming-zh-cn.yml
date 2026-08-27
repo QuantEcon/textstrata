@@ -4,7 +4,12 @@ files: "lectures/*.md"
 source:
   repo: ../../../project-translation/repos/lecture-python-programming
 prose: {strategy: script, script: Han, threshold: 0.05}
-baseline: {strategy: script-jump}
+baseline:
+  strategy: state-file
+  overrides:
+    # shared admonition snippet translated by hand in #23; the engine keeps no
+    # state file for it, so the state-file strategy alone reads it as untranslated
+    lectures/_admonition/gpu.md: e002d4f
 machine:
   bots: ['\[bot\]', 'dependabot', 'github-actions']
   sync: ['\[translation-sync\]', '\[action-translation\]', 'resync']

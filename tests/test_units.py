@@ -106,8 +106,13 @@ def test_noreply_handle_resolution():
 
 def test_baseline_strategy_validated(tmp_path):
     (tmp_path / ".git").mkdir()
-    for strategy, msg in (("state-file", "not implemented"), ("bogus", "must be script-jump")):
+    # state-file without a state directory, and unknown strategies, fail loudly
+    for strategy, msg in (("state-file", "requires machine.state_dir"), ("bogus", "must be script-jump")):
         p = tmp_path / f"{strategy}.yml"
         p.write_text(f"name: t\nrepo: {tmp_path}\nbaseline: {{strategy: {strategy}}}\n", encoding="utf-8")
         with pytest.raises(ConfigError, match=msg):
             load_config(p)
+    p = tmp_path / "ok.yml"
+    p.write_text(f"name: t\nrepo: {tmp_path}\nbaseline: {{strategy: state-file}}\n"
+                 "machine: {state_dir: .translate/state}\n", encoding="utf-8")
+    assert load_config(p).baseline.strategy == "state-file"

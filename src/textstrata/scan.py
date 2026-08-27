@@ -85,6 +85,49 @@ def read_state(repo: Path, state_dir: str | None, doc: str) -> dict[str, str]:
     return out
 
 
+def translation_moment(cfg: Config, repo: Path, prose: Prose, f: str,
+                       hist: list[Commit], log=sys.stderr) -> tuple[str | None, str | None]:
+    """The document's translation moment under the configured baseline strategy.
+
+    A `baseline.overrides` entry wins regardless of strategy: it is the reviewed
+    correction for a document whose history defeats the rule.
+    """
+    forced = cfg.baseline.overrides.get(f)
+    if forced:
+        t_sha, t_date = None, None
+        for c in hist:
+            if c.sha.startswith(forced):
+                t_sha, t_date = c.sha, c.date
+        return t_sha, t_date
+    if cfg.baseline.strategy == "state-file":
+        return _state_file_moment(cfg, repo, f, hist, log)
+    for c in hist:  # script-jump
+        if prose.is_translated(show(repo, c.sha, c.path)):
+            return c.sha, c.date
+    return None, None
+
+
+def _state_file_moment(cfg: Config, repo: Path, f: str, hist: list[Commit],
+                       log) -> tuple[str | None, str | None]:
+    state_path = cfg.machine.state_dir.rstrip("/") + "/" + Path(f).name + ".yml"  # type: ignore[union-attr]
+    st_hist = file_history(repo, state_path)
+    if not st_hist:
+        print(f"  {f}: no state file at {state_path}; untranslated under state-file "
+              "(a baseline.overrides entry corrects this)", file=log)
+        return None, None
+    first = st_hist[0]
+    for c in hist:
+        if c.sha == first.sha:
+            return c.sha, c.date
+    # the engine sometimes lands a document and its state file as adjacent
+    # single-file commits; the document revision the state file describes is
+    # then the last one not after the state file's creation
+    created = datetime.fromisoformat(first.date)
+    prior = [c for c in hist if datetime.fromisoformat(c.date) <= created]
+    c = prior[-1] if prior else hist[0]
+    return c.sha, c.date
+
+
 def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
     repo = cfg.repo
     prose = Prose(cfg.prose)
@@ -104,15 +147,7 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
     for f in files:
         hist = file_history(repo, f)
         histories[f] = hist
-        forced = cfg.baseline.overrides.get(f)
-        t_sha, t_date = None, None
-        for c in hist:
-            content = show(repo, c.sha, c.path)
-            if forced:
-                if c.sha.startswith(forced):
-                    t_sha, t_date = c.sha, c.date
-            elif t_sha is None and prose.is_translated(content):
-                t_sha, t_date = c.sha, c.date
+        t_sha, t_date = translation_moment(cfg, repo, prose, f, hist, log)
         before = True
         for c in hist:
             if c.sha == t_sha:

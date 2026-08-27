@@ -25,7 +25,11 @@ Rules are applied in order; the first match wins. Content rules come before auth
 
 ## The translation moment
 
-Strategy `script-jump`: the first revision at which the document's ratio of target-script characters (whitespace removed) reaches `prose.threshold` (default 5%). This is computed from content, not commit messages, and survives generic PR titles. Documents whose early history is messy (a discarded draft, a regenerated translation) take a per-document override in `baseline.overrides`.
+Strategy `script-jump`: the first revision at which the document's ratio of target-script characters (whitespace removed) reaches `prose.threshold` (default 5%). This is computed from content, not commit messages, and survives generic PR titles.
+
+Strategy `state-file`: the first revision of the document's per-document state file (`machine.state_dir/<name>.yml`, renames followed) marks the moment — the engine's own record that it created the translation, available in repositories that are engine-managed from the start. When the engine landed the document and its state file as adjacent single-file commits, the moment is the last document revision not after the state file's creation. A document with no state file is untranslated under this strategy, and the scan log says so.
+
+Under both strategies, documents whose history defeats the rule (a discarded draft, a regenerated translation, a missing state file) take a per-document override in `baseline.overrides`.
 
 ## Prose-only measurement
 

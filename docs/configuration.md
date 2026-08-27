@@ -15,8 +15,9 @@ prose:
   threshold: 0.05                  # script ratio that marks the translation moment
   # punctuation_map: {",": "，"}   # width normalisation; defaults to a Han map for script: Han
 baseline:
-  strategy: script-jump            # script-jump | state-file (planned)
-  overrides:                       # document -> sha prefix, when the first script-bearing revision is wrong
+  strategy: script-jump            # script-jump | state-file (state-file needs machine.state_dir:
+                                   # the moment is the first revision of the document's state file)
+  overrides:                       # document -> sha prefix, when the strategy picks the wrong revision
     lectures/long_run_growth.md: cd9808c
 machine:
   bots: ['\[bot\]', 'dependabot', 'github-actions']     # author/e-mail regexes (AI agents excluded, see disclosure)
