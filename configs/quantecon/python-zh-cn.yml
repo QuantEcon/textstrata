@@ -13,3 +13,4 @@ disclosure: {trailers: [AI-Assisted], authors: ['copilot-swe-agent']}
 people:
   roster: ../../../project-translation/team/reviewers.yml
   roles: {editor: human-editor, translator: human-translator}
+overrides: overrides/python-zh-cn.yml

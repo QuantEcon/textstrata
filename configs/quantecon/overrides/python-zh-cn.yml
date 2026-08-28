@@ -1,0 +1,28 @@
+# Per-commit tier overrides for lecture-python.zh-cn — a reviewed data file, not code.
+# Applied after the machine and baseline rules (which they cannot reclassify) and before
+# the author rules.
+#
+# These are the probable whole-file AI passes that project-translation's editor-edit-corpus
+# plan segregated from the 2025 hand-translation campaign (see QuantEcon/project-translation#22
+# and plans/editor-edit-corpus.md: "12 whole-file rewrites in python.zh-cn ... probable further
+# AI passes rather than edits"). Candidates were derived by rule — a roster-tier commit
+# replacing >=50% of a document's prose lines (measured against the parent revision, renames
+# followed) — then each candidate was adjudicated from its before/after pairs. Commits whose
+# pairs show a systematic glossary direction, width normalisation or targeted fixes
+# (e.g. 1822c976 政策→策略, 806803f8 求职搜索→工作搜寻, 366d271b/151d2c58/b1955d19 蛋糕食用→吃蛋糕)
+# were judged genuine human editing and are NOT overridden, so this list is shorter than the
+# plan's instance count of 12. Derivation artefacts: the 2026-08-28 scan at 6a4b427.
+overrides:
+  # March 2025: rewrite wave in the days after the initial bulk translation. Uniform
+  # equivalent-meaning rephrasing across every touched document, no glossary direction.
+  ab0498b5: {tier: ai-assisted, note: "'update all translated lectures', 55 files the day after the bulk translation; mccall_fitted_vfi and qr_decomp >70% prose replaced by equivalent-meaning rephrasing"}
+  0f3e2336: {tier: ai-assisted, note: "'update lectures', same wave; aiyagari, cass_koopmans_2, kalman_2 all >70% prose replaced"}
+  5990a84b: {tier: ai-assisted, note: "'updates'; finite_markov 60% prose replaced, same uniform rephrasing shape as the 03-17 wave"}
+  # September 2025: source-refresh restructure and whole-lecture regeneration.
+  a6644817: {tier: seed, note: "re-seeds likelihood_bayes, mix_model and likelihood_ratio_process to updated English source (toc restructure); the removed Chinese is displaced by English source text, not edited"}
+  778e3e11: {tier: ai-assisted, note: "wald_friedman 96% prose replaced plus a whole-lecture fresh translation of the re-seeded likelihood_bayes in one commit"}
+  f22cdff8: {tier: ai-assisted, note: "whole-lecture fresh translation of the re-seeded mix_model in one commit"}
+  # Whole-file uploads that replace most of a document with uniform rephrasing (contrast
+  # the retained uploads, which carry a glossary direction or targeted fixes).
+  ef47483d: {tier: ai-assisted, note: "'Add files via upload'; ak2 68% prose replaced, sentence-scale restructuring throughout"}
+  091ed6c1: {tier: ai-assisted, note: "'Add files via upload'; cass_fiscal 82% prose replaced, 64 retranslation pairs"}

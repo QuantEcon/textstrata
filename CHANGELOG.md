@@ -15,3 +15,7 @@
   moment is the first revision of the document's state file — the engine's own record — instead of the
   script-ratio jump. Requires `machine.state_dir`; a document without a state file is untranslated under it.
   The programming.zh-cn reference config adopts it.
+- Reviewed tier-override file for lecture-python.zh-cn (preparation for
+  [#1](https://github.com/QuantEcon/textstrata/issues/1)): the probable whole-file AI passes inside the
+  2025 hand-translation campaign, derived by rule and adjudicated from their before/after pairs, so the
+  first report's human churn is not inflated by regenerated files committed under roster names.
