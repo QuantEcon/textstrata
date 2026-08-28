@@ -182,7 +182,7 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
         hist = file_history(repo, f)
         histories[f] = hist
         t_sha, t_date = translation_moment(cfg, repo, prose, f, hist, log)
-        revs = state_timeline(repo, cfg.machine.state_dir, f)
+        revs: list[tuple[str, dict[str, str]]] | None = None  # state timeline, read on first sync
         before = True
         for c in hist:
             if c.sha == t_sha:
@@ -196,10 +196,13 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
                    "adds": c.adds, "dels": c.dels, "prose_adds": 0, "prose_dels": 0,
                    "prose_chars_added": 0, "prose_chars_deleted": 0,
                    "engine_model": None, "engine_tool_version": None}
-            if tier == "ai-sync" and revs:
-                st = engine_version_at(revs, c.date)
-                row["engine_model"] = st.get("model")
-                row["engine_tool_version"] = st.get("tool-version")
+            if tier == "ai-sync":
+                if revs is None:
+                    revs = state_timeline(repo, cfg.machine.state_dir, f)
+                if revs:
+                    st = engine_version_at(revs, c.date)
+                    row["engine_model"] = st.get("model")
+                    row["engine_tool_version"] = st.get("tool-version")
             commit_rows.append(row)
         d = DocResult(path=f, translated=t_sha is not None, translation_sha=t_sha,
                       translation_date=t_date, n_commits=len(hist))
