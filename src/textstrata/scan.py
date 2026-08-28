@@ -16,7 +16,7 @@ import re
 import sys
 from collections import Counter
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from . import __version__
@@ -70,19 +70,50 @@ def _days(a: str, b: str) -> int:
     return (datetime.fromisoformat(b) - datetime.fromisoformat(a)).days
 
 
-def read_state(repo: Path, state_dir: str | None, doc: str) -> dict[str, str]:
+def parse_state(text: str) -> dict[str, str]:
     """action-translation style per-document state file: flat `key: value` YAML."""
+    out: dict[str, str] = {}
+    for line in text.splitlines():
+        if ":" in line and not line.startswith((" ", "\t", "#")):
+            k, v = line.split(":", 1)
+            out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
+
+
+def read_state(repo: Path, state_dir: str | None, doc: str) -> dict[str, str]:
     if not state_dir:
         return {}
     p = repo / state_dir / (Path(doc).name + ".yml")
     if not p.exists():
         return {}
-    out: dict[str, str] = {}
-    for line in p.read_text(encoding="utf-8").splitlines():
-        if ":" in line and not line.startswith((" ", "\t", "#")):
-            k, v = line.split(":", 1)
-            out[k.strip()] = v.strip().strip('"').strip("'")
-    return out
+    return parse_state(p.read_text(encoding="utf-8"))
+
+
+def state_timeline(repo: Path, state_dir: str | None, doc: str) -> list[tuple[str, dict[str, str]]]:
+    """(date, fields) for every revision of the document's state file, oldest first."""
+    if not state_dir:
+        return []
+    path = state_dir.rstrip("/") + "/" + Path(doc).name + ".yml"
+    return [(c.date, parse_state(show(repo, c.sha, c.path))) for c in file_history(repo, path)]
+
+
+def engine_version_at(revs: list[tuple[str, dict[str, str]]], date: str) -> dict[str, str]:
+    """The state record for the sync commit at `date`.
+
+    A sync writes its record in the same commit as the document, an adjacent
+    commit seconds later, or its wave's PR — so the first revision at-or-after
+    the commit is that sync's record when it lands within two days. Otherwise
+    the sync wrote no state and the record last in force applies; a sync before
+    the state file existed at all has no record ({} -> "unrecorded").
+    """
+    when = datetime.fromisoformat(date)
+    prior: dict[str, str] = {}
+    for d, fields in revs:
+        dd = datetime.fromisoformat(d)
+        if dd >= when:
+            return fields if dd - when <= timedelta(days=2) else prior
+        prior = fields
+    return prior
 
 
 def translation_moment(cfg: Config, repo: Path, prose: Prose, f: str,
@@ -151,6 +182,7 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
         hist = file_history(repo, f)
         histories[f] = hist
         t_sha, t_date = translation_moment(cfg, repo, prose, f, hist, log)
+        revs: list[tuple[str, dict[str, str]]] | None = None  # state timeline, read on first sync
         before = True
         for c in hist:
             if c.sha == t_sha:
@@ -159,10 +191,19 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
             c.trailers = commit_meta(repo, c.sha).trailers
             tier = ctx.classify(c, t_sha, before and c.sha != t_sha)
             tier_of[(f, c.sha)] = tier
-            commit_rows.append({"document": f, "sha": c.sha, "author": c.author, "email": c.email,
-                                "date": c.date, "subject": c.subject, "tier": tier,
-                                "adds": c.adds, "dels": c.dels, "prose_adds": 0, "prose_dels": 0,
-                                "prose_chars_added": 0, "prose_chars_deleted": 0})
+            row = {"document": f, "sha": c.sha, "author": c.author, "email": c.email,
+                   "date": c.date, "subject": c.subject, "tier": tier,
+                   "adds": c.adds, "dels": c.dels, "prose_adds": 0, "prose_dels": 0,
+                   "prose_chars_added": 0, "prose_chars_deleted": 0,
+                   "engine_model": None, "engine_tool_version": None}
+            if tier == "ai-sync":
+                if revs is None:
+                    revs = state_timeline(repo, cfg.machine.state_dir, f)
+                if revs:
+                    st = engine_version_at(revs, c.date)
+                    row["engine_model"] = st.get("model")
+                    row["engine_tool_version"] = st.get("tool-version")
+            commit_rows.append(row)
         d = DocResult(path=f, translated=t_sha is not None, translation_sha=t_sha,
                       translation_date=t_date, n_commits=len(hist))
         docs[f] = d
@@ -326,6 +367,37 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
                 except GitError:
                     pass
 
+    # ---- engine-version strata over the machine's sync work -----------------------------
+    # keyed by the state-file record each sync wrote; None -> "unrecorded" (pre-engine
+    # history, or no state file for the document)
+    strata: dict[tuple, dict] = {}
+    for r in commit_rows:
+        if r["tier"] != "ai-sync":
+            continue
+        key = (r["engine_model"], r["engine_tool_version"])
+        s = strata.setdefault(key, {"model": key[0] or "unrecorded",
+                                    "tool_version": key[1] or "unrecorded",
+                                    "_shas": set(), "_first": r["date"],
+                                    "prose_churn": 0, "prose_char_churn": 0,
+                                    "overwrote_prose_by_prior_tier": Counter()})
+        s["_shas"].add(r["sha"])
+        s["_first"] = min(s["_first"], r["date"], key=datetime.fromisoformat)
+        s["prose_churn"] += r["prose_adds"] + r["prose_dels"]
+        s["prose_char_churn"] += r["prose_chars_added"] + r["prose_chars_deleted"]
+    for sha, rec in overwrites.items():
+        row = rows_by_key[(next(iter(rec["documents"])), sha)]
+        rec["engine_model"], rec["engine_tool_version"] = row["engine_model"], row["engine_tool_version"]
+        key = (row["engine_model"], row["engine_tool_version"])
+        if key in strata:
+            for dd in rec["documents"].values():
+                strata[key]["overwrote_prose_by_prior_tier"].update(dd["prose_deleted_by_prior_tier"])
+    engine_strata = [{"model": s["model"], "tool_version": s["tool_version"],
+                      "sync_commits": len(s["_shas"]), "prose_churn": s["prose_churn"],
+                      "prose_char_churn": s["prose_char_churn"],
+                      "overwrote_prose_by_prior_tier": dict(s["overwrote_prose_by_prior_tier"])}
+                     for _key, s in sorted(strata.items(),
+                                           key=lambda kv: datetime.fromisoformat(kv[1]["_first"]))]
+
     # ---- write artefacts ----------------------------------------------------------------
     translated = [d for d in docs.values() if d.translated]
     corpus: Counter = Counter()
@@ -347,6 +419,7 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
         "pairs": len(pairs_out),
         "pair_categories": dict(Counter(p["category"] for p in pairs_out)),
         "recurring_substitutions": sum(1 for c in subs.values() if c >= 2),
+        "engine_strata": engine_strata,
         "tiers": list(TIERS),
     }
     (out_dir / "run.json").write_text(json.dumps(run, ensure_ascii=False, indent=1), encoding="utf-8")

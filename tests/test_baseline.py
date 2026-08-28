@@ -5,6 +5,7 @@ a document and its state file landing in one commit (the `translate init` case),
 the pair landing as adjacent single-file commits (the autodiff case), and a
 document with no state file at all.
 """
+import json
 import os
 import subprocess
 import sys
@@ -15,7 +16,7 @@ import pytest
 from textstrata.config import Config, ProseConfig
 from textstrata.git import file_history
 from textstrata.prose import Prose
-from textstrata.scan import translation_moment
+from textstrata.scan import engine_version_at, scan, state_timeline, translation_moment
 
 
 def git(repo, *args, date=None):
@@ -44,19 +45,22 @@ def engine_repo(tmp_path):
     git(repo, "init", "-q")
     # a.md: document and state file in one commit
     (repo / "lectures" / "a.md").write_text("# 讲座甲\n\n这是机器翻译的第一稿。\n", encoding="utf-8")
-    (repo / ".translate" / "state" / "a.md.yml").write_text("mode: NEW\n", encoding="utf-8")
+    (repo / ".translate" / "state" / "a.md.yml").write_text(
+        "mode: NEW\nmodel: alpha-1\ntool-version: 0.1.0\n", encoding="utf-8")
     shas = {"init": commit(repo, "Initial translation via translate init", "2026-03-20T10:00:00Z")}
     # b.md: document first, state file one second later (the autodiff shape)
     (repo / "lectures" / "b.md").write_text("# 讲座乙\n\n另一篇机器初稿。\n", encoding="utf-8")
     shas["b_doc"] = commit(repo, "Update translation: lectures/b.md", "2026-04-09T04:40:27+00:00")
-    (repo / ".translate" / "state" / "b.md.yml").write_text("mode: NEW\n", encoding="utf-8")
+    (repo / ".translate" / "state" / "b.md.yml").write_text(
+        "mode: NEW\nmodel: beta-1\ntool-version: 0.1.5\n", encoding="utf-8")
     shas["b_state"] = commit(repo, "Update translation: .translate/state/b.md.yml", "2026-04-09T04:40:28+00:00")
     # c.md: no state file
     (repo / "lectures" / "c.md").write_text("# 讲座丙\n\n没有状态文件的文稿。\n", encoding="utf-8")
     shas["c_doc"] = commit(repo, "Add c.md by hand", "2026-05-01T09:00:00Z")
     # a later sync touches a.md and its state file: must not move a.md's moment
     (repo / "lectures" / "a.md").write_text("# 讲座甲\n\n这是机器重新同步的稿子。\n", encoding="utf-8")
-    (repo / ".translate" / "state" / "a.md.yml").write_text("mode: UPDATE\n", encoding="utf-8")
+    (repo / ".translate" / "state" / "a.md.yml").write_text(
+        "mode: UPDATE\nmodel: alpha-2\ntool-version: 0.2.0\n", encoding="utf-8")
     shas["sync"] = commit(repo, "[translation-sync] resync a.md", "2026-06-01T09:00:00Z")
     return repo, shas
 
@@ -105,3 +109,42 @@ def test_override_without_match_warns(engine_repo, capsys):
     cfg = make_cfg(repo, overrides={"lectures/a.md": "deadbeef"})
     assert moment(cfg, repo, "lectures/a.md") == (None, None)
     assert "matches no commit" in capsys.readouterr().err
+
+
+def test_engine_version_at(engine_repo):
+    repo, _shas = engine_repo
+    revs = state_timeline(repo, ".translate/state", "lectures/a.md")
+    assert [r[1]["model"] for r in revs] == ["alpha-1", "alpha-2"]
+    # a record written seconds after the commit is that sync's own record
+    assert engine_version_at(revs, "2026-06-01T08:59:59Z")["model"] == "alpha-2"
+    # a commit long before the next record wrote no state: the record last in force applies
+    assert engine_version_at(revs, "2026-05-01T00:00:00Z")["model"] == "alpha-1"
+    # a commit after the last revision likewise
+    assert engine_version_at(revs, "2026-07-01T00:00:00Z")["model"] == "alpha-2"
+    # a commit before the state file existed has no record
+    assert engine_version_at(revs, "2026-01-01T00:00:00Z") == {}
+    assert engine_version_at([], "2026-07-01T00:00:00Z") == {}
+    assert state_timeline(repo, ".translate/state", "lectures/c.md") == []
+
+
+def test_engine_strata_in_scan(engine_repo, tmp_path):
+    repo, shas = engine_repo
+    cfg = make_cfg(repo)
+    cfg.machine.sync = [r"\[translation-sync\]", "^Update translation: "]
+    with open(os.devnull, "w") as devnull:
+        run = scan(cfg, tmp_path / "out", log=devnull)
+    rows = [json.loads(ln) for ln in (tmp_path / "out" / "commits.jsonl").open(encoding="utf-8")]
+    by = {(r["document"], r["sha"]): r for r in rows}
+    # same-commit mode: the sync is stamped with the record it wrote
+    sync = by[("lectures/a.md", shas["sync"])]
+    assert sync["tier"] == "ai-sync"
+    assert (sync["engine_model"], sync["engine_tool_version"]) == ("alpha-2", "0.2.0")
+    # adjacent-commit mode: the doc commit is stamped from the state written seconds later
+    bdoc = by[("lectures/b.md", shas["b_doc"])]
+    assert bdoc["tier"] == "ai-sync"
+    assert (bdoc["engine_model"], bdoc["engine_tool_version"]) == ("beta-1", "0.1.5")
+    # non-sync rows carry no stamp
+    assert by[("lectures/a.md", shas["init"])]["engine_model"] is None
+    # per-version totals, ordered by first appearance
+    assert [(s["model"], s["tool_version"], s["sync_commits"]) for s in run["engine_strata"]] == [
+        ("beta-1", "0.1.5", 1), ("alpha-2", "0.2.0", 1)]
