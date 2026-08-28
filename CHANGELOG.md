@@ -27,3 +27,7 @@
   an unpaired line with no target-script content routes to `code-or-markup` instead of
   `addition`/`deletion`, mirroring the paired-line rule, so the omission taxonomy counts prose only.
   The total pair count is unchanged — only categories shift.
+- PR-API channel ([#5](https://github.com/QuantEcon/textstrata/issues/5)): a new optional `collect-pr`
+  command (the package's only network-touching code) records review comments and suggestion fences per
+  document into `pr_channel.jsonl`/`pr_channel.json` — the human signal squash merges and closed-unmerged
+  PRs hide from git. `scan` neither reads nor writes the channel; nothing is blended into blame.
