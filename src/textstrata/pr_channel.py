@@ -36,14 +36,21 @@ def _concat(text: str):
     idx, out, text = 0, None, text.strip()
     while idx < len(text):
         obj, idx = dec.raw_decode(text, idx)
-        out = (out or []) + obj if isinstance(obj, list) else obj
+        if isinstance(obj, list):
+            out = out if isinstance(out, list) else []
+            out.extend(obj)
+        else:
+            out = obj
         while idx < len(text) and text[idx] in " \n\r\t":
             idx += 1
     return [] if out is None else out
 
 
 def gh_api(path: str):
-    r = subprocess.run(["gh", "api", "--paginate", path], capture_output=True, check=False)
+    try:
+        r = subprocess.run(["gh", "api", "--paginate", path], capture_output=True, check=False)
+    except FileNotFoundError as e:
+        raise GhError("gh is not installed — collect-pr requires an authenticated GitHub CLI") from e
     if r.returncode != 0:
         raise GhError(f"gh api {path}: {r.stderr.decode(errors='replace')[:400]}")
     return _concat(r.stdout.decode("utf-8", errors="replace"))
@@ -75,7 +82,10 @@ def collect(cfg: Config, out_dir: Path, log=sys.stderr, api=gh_api) -> dict:
         pr = int(c["pull_request_url"].rstrip("/").rsplit("/", 1)[-1])
         if pr not in pr_state:
             p = api(f"repos/{pc.repo}/pulls/{pr}")
-            pr_state[pr] = "merged" if p.get("merged_at") else p.get("state", "unknown")
+            # self-describing states: "closed" without a merge is the channel's key case
+            pr_state[pr] = ("merged" if p.get("merged_at")
+                            else "closed-unmerged" if p.get("state") == "closed"
+                            else p.get("state", "unknown"))
         login = (c.get("user") or {}).get("login") or ""
         person = roster.by_handle.get(login.lower())
         # the comments endpoint reports Copilot's reviewer as a bare "Copilot" login

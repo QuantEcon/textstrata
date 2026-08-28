@@ -62,7 +62,7 @@ def test_collect(tmp_path, capsys):
     by_id = {r["comment_id"]: r for r in recs}
     # roster resolution by login, and the closed-unmerged PR is the point of the channel
     assert by_id[11]["roster_id"] == "HumphreyYang" and by_id[11]["role"] == "editor"
-    assert by_id[11]["pr_state"] == "closed" and by_id[13]["pr_state"] == "merged"
+    assert by_id[11]["pr_state"] == "closed-unmerged" and by_id[13]["pr_state"] == "merged"
     # suggestion fences carry the before (hunk tail) / after (fence body) pair
     assert by_id[12]["kind"] == "suggestion"
     assert by_id[12]["before"] == "# Update wealth" and by_id[12]["after"] == "# 更新财富"
@@ -72,7 +72,7 @@ def test_collect(tmp_path, capsys):
     assert summary["comments"] == 3 and summary["suggestions"] == 1
     assert summary["human"] == 2 and summary["bot"] == 1
     assert summary["by_role"] == {"editor": 2, "bot": 1}
-    assert summary["pr_states"] == {"closed": 2, "merged": 1}
+    assert summary["pr_states"] == {"closed-unmerged": 2, "merged": 1}
     assert "3 review comments" in capsys.readouterr().err
 
 
