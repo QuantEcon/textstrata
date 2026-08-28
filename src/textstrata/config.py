@@ -83,6 +83,12 @@ class PeopleConfig:
 
 
 @dataclass
+class PrChannelConfig:
+    repo: str | None = None             # owner/name slug (the checkout's remote may be a fork)
+    since: str | None = None            # ISO date; earlier review comments are skipped
+
+
+@dataclass
 class ReviewStateConfig:
     stale_after_syncs: int = 3          # ai-sync commits since last human touch -> audit-stale
     min_prose_lines: int = 1            # prose lines a roster commit must change to count as a touch
@@ -106,6 +112,7 @@ class Config:
     disclosure: DisclosureConfig = field(default_factory=DisclosureConfig)
     people: PeopleConfig = field(default_factory=PeopleConfig)
     review_state: ReviewStateConfig = field(default_factory=ReviewStateConfig)
+    pr_channel: PrChannelConfig = field(default_factory=PrChannelConfig)
     overrides_file: str | None = None   # per-commit tier overrides (sha prefix -> tier)
     base_dir: Path = field(default_factory=Path)
 
@@ -134,7 +141,7 @@ def load_config(path: str | Path) -> Config:
         if key not in raw:
             raise ConfigError(f"{path}: missing required key {key!r}")
     known = {"name", "repo", "files", "source", "prose", "baseline", "machine",
-             "disclosure", "people", "review_state", "overrides"}
+             "disclosure", "people", "review_state", "pr_channel", "overrides"}
     unknown = set(raw) - known
     if unknown:
         raise ConfigError(f"{path}: unknown keys {sorted(unknown)}")
@@ -162,6 +169,7 @@ def load_config(path: str | Path) -> Config:
         disclosure=_sub(DisclosureConfig, raw.get("disclosure"), "disclosure"),
         people=_sub(PeopleConfig, raw.get("people"), "people"),
         review_state=_sub(ReviewStateConfig, raw.get("review_state"), "review_state"),
+        pr_channel=_sub(PrChannelConfig, raw.get("pr_channel"), "pr_channel"),
         overrides_file=raw.get("overrides"),
         base_dir=path.parent,
     )

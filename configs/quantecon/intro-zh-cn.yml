@@ -29,3 +29,4 @@ people:
 review_state:
   stale_after_syncs: 3
 overrides: overrides/intro-zh-cn.yml
+pr_channel: {repo: QuantEcon/lecture-intro.zh-cn}

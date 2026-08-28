@@ -33,6 +33,9 @@ people:
 review_state:
   stale_after_syncs: 3             # machine syncs since the last human touch -> audit-stale
   min_prose_lines: 1               # prose lines a roster commit must change to count as a touch
+pr_channel:                        # optional: enables `collect-pr` (network; gh auth required)
+  repo: QuantEcon/lecture-intro.zh-cn   # owner/name slug — the checkout's remote may be a fork
+  # since: 2026-03-01              # skip review comments created before this date
 overrides: overrides/intro-zh-cn.yml   # per-commit tier overrides (reviewed data file)
 ```
 

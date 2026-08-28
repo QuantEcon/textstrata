@@ -14,3 +14,4 @@ people:
   roster: ../../../project-translation/team/reviewers.yml
   roles: {editor: human-editor, translator: human-translator}
 overrides: overrides/python-zh-cn.yml
+pr_channel: {repo: QuantEcon/lecture-python.zh-cn}

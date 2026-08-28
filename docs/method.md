@@ -62,6 +62,16 @@ A sync with no state record — pre-engine history, or a document the engine doe
 `unrecorded`; a state file that itself says `model: unknown` keeps that literal value, so the two cases
 stay distinguishable.
 
+## The PR-API channel
+
+Squash merges hide in-PR human cleanup and closed-unmerged PRs carry review comments no commit records.
+The optional `collect-pr` command (the package's only network-touching code; requires an authenticated
+`gh`) records review comments and suggestion fences per document into `pr_channel.jsonl` — author
+resolved to a roster role by GitHub login, bot reviewers flagged rather than dropped, suggestion fences
+carrying an extracted before/after pair — with a summary in `pr_channel.json`. The channel is a separate
+human-signal series: `scan` neither reads nor writes it, so scan determinism is untouched, and nothing is
+blended into blame; joins happen downstream on document path. Design of record: [#5](https://github.com/QuantEcon/textstrata/issues/5).
+
 ## Known limits
 
 - **Squash merges** hide human work done inside a machine-drafted PR. `ai-initial` means *as landed*; human effort is a lower bound.
