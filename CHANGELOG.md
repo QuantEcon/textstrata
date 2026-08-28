@@ -19,3 +19,7 @@
   [#1](https://github.com/QuantEcon/textstrata/issues/1)): the probable whole-file AI passes inside the
   2025 hand-translation campaign, derived by rule and adjudicated from their before/after pairs, so the
   first report's human churn is not inflated by regenerated files committed under roster names.
+- Engine-version strata ([#2](https://github.com/QuantEcon/textstrata/issues/2)): each `ai-sync` commit is
+  stamped with `engine_model`/`engine_tool_version` from the state-file history (the record written by or
+  immediately after the commit), `run.json` carries per-version totals (`engine_strata`), and
+  `overwrites.json` entries are stamped the same way; syncs with no record read `unrecorded`.
