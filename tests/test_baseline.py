@@ -58,10 +58,20 @@ def engine_repo(tmp_path):
     (repo / "lectures" / "c.md").write_text("# 讲座丙\n\n没有状态文件的文稿。\n", encoding="utf-8")
     shas["c_doc"] = commit(repo, "Add c.md by hand", "2026-05-01T09:00:00Z")
     # a later sync touches a.md and its state file: must not move a.md's moment
-    (repo / "lectures" / "a.md").write_text("# 讲座甲\n\n这是机器重新同步的稿子。\n", encoding="utf-8")
+    (repo / "lectures" / "a.md").write_text(
+        "# 讲座甲\n\n这是机器重新同步的稿子。\n\ny = 2\n", encoding="utf-8")
     (repo / ".translate" / "state" / "a.md.yml").write_text(
         "mode: UPDATE\nmodel: alpha-2\ntool-version: 0.2.0\n", encoding="utf-8")
     shas["sync"] = commit(repo, "[translation-sync] resync a.md", "2026-06-01T09:00:00Z")
+    # two editor-shaped commits (non-bot, non-sync, off-roster -> ai-assisted),
+    # one purely additive and one purely deletive, so every line is unpaired:
+    # a prose line and a code line arrive, then a code line leaves
+    (repo / "lectures" / "a.md").write_text(
+        "# 讲座甲\n\n这是机器重新同步的稿子。\n\ny = 2\n\n新增的一段人写文字。\n\nx = 1\n", encoding="utf-8")
+    shas["edit"] = commit(repo, "Edit a.md by hand", "2026-07-01T09:00:00Z")
+    (repo / "lectures" / "a.md").write_text(
+        "# 讲座甲\n\n这是机器重新同步的稿子。\n\n新增的一段人写文字。\n\nx = 1\n", encoding="utf-8")
+    shas["edit2"] = commit(repo, "Drop the scratch code line", "2026-07-02T09:00:00Z")
     return repo, shas
 
 
@@ -148,3 +158,20 @@ def test_engine_strata_in_scan(engine_repo, tmp_path):
     # per-version totals, ordered by first appearance
     assert [(s["model"], s["tool_version"], s["sync_commits"]) for s in run["engine_strata"]] == [
         ("beta-1", "0.1.5", 1), ("alpha-2", "0.2.0", 1)]
+
+
+def test_unpaired_lines_prose_gated(engine_repo, tmp_path):
+    repo, shas = engine_repo
+    cfg = make_cfg(repo)
+    cfg.machine.sync = [r"\[translation-sync\]"]
+    with open(os.devnull, "w") as devnull:
+        scan(cfg, tmp_path / "out", log=devnull)
+    pairs = [json.loads(ln) for ln in (tmp_path / "out" / "pairs.jsonl").open(encoding="utf-8")]
+    mine = [p for p in pairs if p["sha"] in (shas["edit"][:8], shas["edit2"][:8])]
+    got = {(p["category"], p["after"] or p["before"]) for p in mine}
+    # a prose line arriving is an addition; code arriving or leaving is code-or-markup
+    assert ("addition", "新增的一段人写文字。") in got
+    assert ("code-or-markup", "x = 1") in got
+    assert ("code-or-markup", "y = 2") in got
+    assert all(p["taxonomy"] == "formatting" for p in mine if p["category"] == "code-or-markup")
+    assert not any(p["category"] == "deletion" for p in mine)

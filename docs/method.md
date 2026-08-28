@@ -66,7 +66,7 @@ stay distinguishable.
 
 - **Squash merges** hide human work done inside a machine-drafted PR. `ai-initial` means *as landed*; human effort is a lower bound.
 - **Last-toucher blame** credits a whole line to whoever changed one character of it. Human shares are an upper bound at line granularity; churn is therefore also reported in changed characters (`chars_changed` per pair, `prose_chars_added`/`prose_chars_deleted` per commit, `prose_char_churn_by_tier` per document), where a one-character fix counts as one character. Counts come from `SequenceMatcher` opcodes over the paired lines' raw text; unpaired additions and deletions count the full line.
-- **Line pairing** inside rewritten paragraphs is heuristic (similarity-matched within a hunk). Category counts are indicative.
+- **Line pairing** inside rewritten paragraphs is heuristic (similarity-matched within a hunk). Category counts are indicative. Unpaired lines with no target-script content — code, maths, markup, metadata arriving or leaving — are categorised `code-or-markup`, not `addition`/`deletion`, so the omission taxonomy counts prose only.
 - **Identity** is resolved by e-mail and GitHub noreply handle only; display names are ignored. Unresolved authors fall to `ai-assisted` and should be reviewed in `commits.jsonl`.
 - **Pre-engine history** has no recorded engine version and lands in the `unrecorded` stratum; do not read its rates as the shipping engine's.
 
