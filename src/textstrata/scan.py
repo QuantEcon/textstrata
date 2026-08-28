@@ -318,18 +318,22 @@ def scan(cfg: Config, out_dir: Path, log=sys.stderr) -> dict:
                                       "before": o, "after": n})
                     if tier in HUMAN_TIERS and cat in ("terminology", "punctuation-width", "fluency"):
                         mine_substitutions(o, n, prose, subs, sub_examples)
+                # an unpaired line with no target-script content is code, math or
+                # markup arriving or leaving, not an omission-taxonomy edit
                 for n in adds:
                     if n.strip():
+                        cat = "addition" if prose.is_prose(n) else "code-or-markup"
                         pairs_out.append({"document": f, "sha": c.sha[:8], "date": c.date[:10],
                                           "tier": tier, "pr": pr.group(1) if pr else None,
-                                          "category": "addition", "taxonomy": "omission",
+                                          "category": cat, "taxonomy": CATEGORY_MAP[cat],
                                           "similarity": 0.0, "chars_changed": len(n),
                                           "before": "", "after": n})
                 for _ln, o in dels:
                     if o.strip():
+                        cat = "deletion" if prose.is_prose(o) else "code-or-markup"
                         pairs_out.append({"document": f, "sha": c.sha[:8], "date": c.date[:10],
                                           "tier": tier, "pr": pr.group(1) if pr else None,
-                                          "category": "deletion", "taxonomy": "omission",
+                                          "category": cat, "taxonomy": CATEGORY_MAP[cat],
                                           "similarity": 0.0, "chars_changed": len(o),
                                           "before": o, "after": ""})
         d.prose_churn_by_tier = dict(churn)

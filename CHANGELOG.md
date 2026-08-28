@@ -23,3 +23,7 @@
   stamped with `engine_model`/`engine_tool_version` from the state-file history (the record written by or
   immediately after the commit), `run.json` carries per-version totals (`engine_strata`), and
   `overwrites.json` entries are stamped the same way; syncs with no record read `unrecorded`.
+- Unpaired additions and deletions are prose-gated ([#14](https://github.com/QuantEcon/textstrata/issues/14)):
+  an unpaired line with no target-script content routes to `code-or-markup` instead of
+  `addition`/`deletion`, mirroring the paired-line rule, so the omission taxonomy counts prose only.
+  The total pair count is unchanged — only categories shift.
